@@ -1,0 +1,145 @@
+id: schoko-kirschkuchen
+name: Schoko-Kirschkuchen
+source: "https://www.chefkoch.de/rezepte/3912411596808801/Saftiger-veganer-Schoko-Kirschkuchen-vom-Blech.html"
+description: "Veganer Schoko-Kirschkuchen vom Blech — Kostenkalkulation"
+
+plates:
+  - id: standard
+    label: "Standard Blech"
+    widthCm: 39
+    lengthCm: 32
+    default: true
+  - id: gn11
+    label: "GN 1/1"
+    widthCm: 53
+    lengthCm: 32
+    adjustable: true
+
+batter:
+  baseMl: 1101
+  extraLiquidPerBatchMl: 500
+  extraLiquidLabel: "Kirschsaft (aus dem Glas)"
+
+ingredients:
+  - id: mehl
+    label: Weizenmehl
+    unit: g
+    baseAmount: 450
+    kcalPerUnit: 3.4
+    prices:
+      retail: { packSize: 1000, packPrice: 0.79 }
+      gastro: { packSize: 10000, packPrice: 6.00 }
+
+  - id: zucker
+    label: Zucker
+    unit: g
+    baseAmount: 360
+    kcalPerUnit: 4.0
+    prices:
+      retail: { packSize: 1000, packPrice: 1.49 }
+      gastro: { packSize: 10000, packPrice: 10.00 }
+
+  - id: kakao
+    label: Kakaopulver
+    unit: g
+    baseAmount: 70
+    kcalPerUnit: 3.5
+    prices:
+      retail: { packSize: 250, packPrice: 1.49 }
+      gastro: { packSize: 1000, packPrice: 8.00 }
+
+  - id: backpulver
+    label: Backpulver
+    unit: g
+    baseAmount: 15
+    kcalPerUnit: 0
+    prices:
+      retail: { packSize: 150, packPrice: 0.65 }
+      gastro: { packSize: 1000, packPrice: 4.00 }
+
+  - id: vanillezucker
+    label: Vanillezucker
+    unit: g
+    baseAmount: 16
+    kcalPerUnit: 4.0
+    prices:
+      retail: { packSize: 80, packPrice: 0.65 }
+      gastro: { packSize: 200, packPrice: 7.50 }
+
+  - id: rapsoel
+    label: "Rapsöl"
+    unit: ml
+    baseAmount: 185
+    kcalPerUnit: 8.28
+    prices:
+      retail: { packSize: 1000, packPrice: 1.39 }
+      gastro: { packSize: 10000, packPrice: 16.50 }
+
+  - id: lecithin
+    label: "Lecithin (Emulgator)"
+    unit: g
+    baseAmount: 9
+    kcalPerUnit: 8.0
+    role: optional_toggle
+    toggleLabel: "2% Mehlanteil · reduziert Öligkeit"
+    prices:
+      retail: { packSize: 1, packPrice: 0.02 }
+      gastro: { packSize: 1, packPrice: 0.02 }
+
+  - id: sauerkirschen
+    label: Sauerkirschen
+    unit: g
+    baseAmount: 700
+    kcalPerUnit: 0.5
+    role: weight_pct
+    sliderMin: 0
+    sliderMax: 50
+    prices:
+      retail: { packSize: 700, packPrice: 1.99 }
+      gastro:
+        packSize: 700
+        packPrice: 1.99
+        bulkDiscount:
+          minPacks: 12
+          packPrice: 6.37
+
+  - id: margarine
+    label: "Margarine (Einfetten)"
+    unit: g
+    baseAmount: 5
+    kcalPerUnit: 7.2
+    prices:
+      retail: { packSize: 250, packPrice: 0.89 }
+      gastro: { packSize: 2500, packPrice: 6.00 }
+
+topping:
+  label: Streusel
+  sliderLabel: "Bleche mit Streusel"
+  defaultPercent: 100
+  ingredients:
+    - id: kokosraspeln
+      label: "Kokosraspeln (Streusel)"
+      unit: g
+      baseAmount: 200
+      kcalPerUnit: 6.0
+      prices:
+        retail: { packSize: 200, packPrice: 0.99 }
+        gastro: { packSize: 1000, packPrice: 6.00 }
+
+    - id: streusel_zucker
+      label: "Zucker (Streusel)"
+      unit: g
+      baseAmount: 150
+      kcalPerUnit: 4.0
+      prices:
+        retail: { packSize: 1000, packPrice: 1.49 }
+        gastro: { packSize: 10000, packPrice: 10.00 }
+
+    - id: streusel_butter
+      label: "Butter/Margarine (Streusel)"
+      unit: g
+      baseAmount: 150
+      kcalPerUnit: 7.2
+      prices:
+        retail: { packSize: 250, packPrice: 0.89 }
+        gastro: { packSize: 2500, packPrice: 6.00 }
