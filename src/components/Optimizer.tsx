@@ -225,6 +225,10 @@ export function Optimizer({ recipe, numPlates, config, plateConfig, prices, tier
               const result = results[selectedIdx];
               return (
                 <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs text-gray-500 px-0.5">
+                    <span>{numPlates} {numPlates === 1 ? 'Blech' : 'Bleche'}</span>
+                    <span>{result.generationsRan} Generationen</span>
+                  </div>
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <SummaryCard label="Reste vorher" value={fmtEur(result.totalLeftoverBefore)} sub="" />
                     <SummaryCard label="Reste nachher" value={fmtEur(result.totalLeftoverAfter)} sub="" highlight="green" />
@@ -293,7 +297,7 @@ export function Optimizer({ recipe, numPlates, config, plateConfig, prices, tier
                       <tfoot>
                         <tr className="border-t-2 border-gray-200">
                           <td colSpan={4} className="py-1.5 pl-1 text-xs font-semibold text-gray-600">
-                            Gesamt · {result.generationsRan} Generationen
+                            Gesamt
                           </td>
                           <td className="text-right py-1.5 pr-1.5 font-semibold text-gray-600">{fmtEur(result.totalLeftoverBefore)}</td>
                           <td className="text-right py-1.5 pr-1.5 font-semibold text-green-700">{fmtEur(result.totalLeftoverAfter)}</td>
