@@ -19,7 +19,6 @@ function fmtAmount(amount: number, unit: 'g' | 'ml'): string {
 }
 
 export function PriceTable({ recipe, prices, tier, onTierChange, onPricesChange }: Props) {
-  const otherTier: PriceTier = tier === 'retail' ? 'gastro' : 'retail';
   const ingredients = getAllIngredients(recipe);
 
   const updatePrice = (id: IngredientId, field: 'packSize' | 'packPrice', value: number) => {
@@ -59,66 +58,55 @@ export function PriceTable({ recipe, prices, tier, onTierChange, onPricesChange 
         </div>
       </div>
 
-      <div className="overflow-x-auto -mx-1">
-        <table className="w-full text-sm min-w-[340px]">
-          <thead>
-            <tr className="border-b border-gray-100">
-              <th className="text-left py-1.5 pl-1 font-medium text-gray-500">Zutat</th>
-              <th className="text-right py-1.5 font-medium text-gray-500">Pack</th>
-              <th className="text-right py-1.5 font-medium text-gray-500">€/Pack</th>
-              <th className="text-right py-1.5 pr-1 font-medium text-gray-500 hidden sm:table-cell whitespace-nowrap">€/kg · /L</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ingredients.map((ing) => {
-              const p = prices[ing.id][tier];
-              const pOther = prices[ing.id][otherTier];
-              const unitLabel = ing.unit === 'ml' ? '/L' : '/kg';
-              return (
-                <tr key={ing.id} className={`border-b border-gray-50 ${ing.isTopping ? 'bg-amber-50/40' : ''} ${ing.role === 'optional_toggle' ? 'opacity-60' : ''}`}>
-                  <td className={`py-1.5 pl-1 pr-2 text-xs ${ing.isTopping ? 'text-amber-800' : 'text-gray-800'}`}>
-                    {ing.isTopping && <span className="text-amber-300 mr-0.5">▸</span>}
-                    <span className="leading-tight">
-                      {ing.label.replace(/ \([^)]+\)$/, '')}
-                    </span>
-                    {ing.role === 'optional_toggle' && <span className="ml-1 text-gray-400 text-[10px]">opt.</span>}
-                  </td>
-                  <td className="text-right py-1.5 pr-1.5">
-                    <div className="flex items-center justify-end gap-0.5">
-                      <input
-                        type="number" min="1"
-                        value={p.packSize}
-                        onChange={(e) => updatePrice(ing.id, 'packSize', Math.max(1, parseFloat(e.target.value) || 1))}
-                        className="w-16 border border-gray-200 rounded px-1 py-0.5 text-right text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
-                      />
-                      <span className="text-gray-400 text-xs">{ing.unit}</span>
-                    </div>
-                  </td>
-                  <td className="text-right py-1.5 pr-1.5">
-                    <div className="flex items-center justify-end gap-1">
-                      <input
-                        type="number" min="0" step="0.01"
-                        value={p.packPrice}
-                        onChange={(e) => updatePrice(ing.id, 'packPrice', Math.max(0, parseFloat(e.target.value) || 0))}
-                        className="w-16 border border-gray-200 rounded px-1 py-0.5 text-right text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
-                      />
-                      <span className="text-gray-300 text-[10px] hidden sm:inline whitespace-nowrap">
-                        {fmtEur(pOther.packPrice)}/{fmtAmount(pOther.packSize, ing.unit)}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="text-right py-1.5 pr-1 text-gray-500 text-xs hidden sm:table-cell whitespace-nowrap">
-                    {fmtEur(p.pricePerUnit)}{unitLabel}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      <div className="space-y-1">
+        {ingredients.map((ing) => {
+          const p = prices[ing.id][tier];
+          const unitLabel = ing.unit === 'ml' ? '/L' : '/kg';
+          return (
+            <div
+              key={ing.id}
+              className={`flex items-center gap-2 px-2 py-1.5 rounded-lg ${
+                ing.isTopping ? 'bg-amber-50' : 'bg-gray-50'
+              } ${ing.role === 'optional_toggle' ? 'opacity-60' : ''}`}
+            >
+              <div className="flex-1 min-w-0">
+                <span className={`text-xs font-medium truncate ${ing.isTopping ? 'text-amber-800' : 'text-gray-800'}`}>
+                  {ing.isTopping && <span className="text-amber-400 mr-0.5">▸</span>}
+                  {ing.label.replace(/ \([^)]+\)$/, '')}
+                  {ing.role === 'optional_toggle' && <span className="ml-1 text-gray-400 text-[10px]">opt.</span>}
+                </span>
+                <div className="text-[10px] text-gray-400 mt-0.5">
+                  {fmtEur(p.pricePerUnit)}{unitLabel}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1 shrink-0">
+                <input
+                  type="number" min="1"
+                  value={p.packSize}
+                  onChange={(e) => updatePrice(ing.id, 'packSize', Math.max(1, parseFloat(e.target.value) || 1))}
+                  className="w-16 border border-gray-200 rounded px-1.5 py-1 text-right text-xs focus:outline-none focus:ring-1 focus:ring-amber-400 bg-white"
+                />
+                <span className="text-gray-400 text-xs w-5">{ing.unit}</span>
+              </div>
+
+              <div className="flex items-center gap-1 shrink-0">
+                <span className="text-gray-400 text-xs">€</span>
+                <input
+                  type="number" min="0" step="0.01"
+                  value={p.packPrice}
+                  onChange={(e) => updatePrice(ing.id, 'packPrice', Math.max(0, parseFloat(e.target.value) || 0))}
+                  className="w-16 border border-gray-200 rounded px-1.5 py-1 text-right text-xs focus:outline-none focus:ring-1 focus:ring-amber-400 bg-white"
+                />
+              </div>
+            </div>
+          );
+        })}
       </div>
-      <p className="text-xs text-gray-400 mt-2">
-        {recipe.topping ? `${recipe.topping.label} gelb · ` : ''}{otherTier === 'retail' ? 'Einzelhandel' : 'Gastro'}-Preis in grau
-      </p>
+
+      {recipe.topping && (
+        <p className="text-[10px] text-gray-400 mt-2">▸ {recipe.topping.label}</p>
+      )}
     </div>
   );
 }
