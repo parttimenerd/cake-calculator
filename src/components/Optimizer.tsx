@@ -300,8 +300,11 @@ export function Optimizer({ recipe, numPlates, config, plateConfig, prices, tier
                       </tbody>
                       <tfoot>
                         <tr className="border-t-2 border-gray-200">
-                          <td colSpan={5} className="py-1.5 pl-1 text-xs font-semibold text-gray-600">
+                          <td colSpan={4} className="py-1.5 pl-1 text-xs font-semibold text-gray-600">
                             Gesamt
+                          </td>
+                          <td className="text-right py-1.5 pr-1.5 font-bold text-gray-800">
+                            {fmtEur(result.ingredients.reduce((s, r) => s + r.costPerPlate, 0))}
                           </td>
                           <td className="text-right py-1.5 pr-1.5 font-semibold text-gray-600">{fmtEur(result.totalLeftoverBefore)}</td>
                           <td className="text-right py-1.5 pr-1.5 font-semibold text-green-700">{fmtEur(result.totalLeftoverAfter)}</td>
