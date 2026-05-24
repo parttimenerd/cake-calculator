@@ -5,6 +5,8 @@ interface BatchInfo {
   litersPerPlate: number;
   platesPerBatch: number;
   batches: number;
+  lastBatchPlates: number;
+  fullBatches: number;
 }
 
 interface Props {
