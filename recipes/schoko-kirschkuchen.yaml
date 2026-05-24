@@ -95,13 +95,10 @@ ingredients:
     sliderMin: 0
     sliderMax: 50
     prices:
-      retail: { packSize: 700, packPrice: 1.99 }
+      retail: { packSize: 350, packPrice: 3.69 }
       gastro:
-        packSize: 700
-        packPrice: 1.99
-        bulkDiscount:
-          minPacks: 12
-          packPrice: 6.37
+        packSize: 350
+        packPrice: 3.69
 
   - id: margarine
     label: "Margarine (Einfetten)"

@@ -43,6 +43,14 @@ export function BudgetCalculator({ recipe, budget, onBudgetChange, result, tier,
   );
   const toppingLines = recipe.topping ? allIngs.filter(i => i.isTopping) : [];
 
+  const batterWeightGPerPlate = allIngs
+    .filter(i => !i.isTopping && i.unit === 'g')
+    .reduce((s, i) => s + (amountsPerPlate[i.id] ?? 0), 0);
+  const toppingWeightGPerPlate = recipe.topping
+    ? allIngs.filter(i => i.isTopping && i.unit === 'g')
+        .reduce((s, i) => s + (amountsPerPlate[i.id] ?? 0) * (recipeConfig.toppingPercent / 100), 0)
+    : 0;
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-4">
       <h2 className="text-base font-semibold text-gray-900">Budget-Kalkulator</h2>
@@ -77,13 +85,28 @@ export function BudgetCalculator({ recipe, budget, onBudgetChange, result, tier,
       </div>
 
       {result.platesCount > 0 && (
-        <div className="bg-blue-50 rounded-lg px-4 py-3 text-sm space-y-1">
-          <div className="flex justify-between">
+        <div className="bg-blue-50 rounded-lg px-4 py-3 text-sm space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-blue-700 font-medium">Teig-Portionen (Schüssel)</span>
-            <span className="font-bold text-blue-900">{batchInfo.batches}×</span>
+            <div className="flex items-center gap-1">
+              {batchInfo.fullBatches > 0 && (
+                <span className="bg-blue-200 text-blue-900 text-xs font-bold px-2 py-0.5 rounded-full">
+                  {batchInfo.fullBatches}× {batchInfo.platesPerBatch} {batchInfo.platesPerBatch === 1 ? 'Blech' : 'Bleche'}
+                </span>
+              )}
+              {batchInfo.lastBatchPlates !== batchInfo.platesPerBatch && batchInfo.lastBatchPlates > 0 && (
+                <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded-full">
+                  1× {batchInfo.lastBatchPlates} {batchInfo.lastBatchPlates === 1 ? 'Blech' : 'Bleche'}
+                </span>
+              )}
+            </div>
           </div>
-          <div className="text-blue-600 text-xs">
-            {batchInfo.platesPerBatch} {batchInfo.platesPerBatch === 1 ? 'Blech' : 'Bleche'}/Portion · {batchInfo.litersPerPlate.toFixed(2)} L/Blech
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-blue-600 text-xs">
+            <span>{batchInfo.litersPerPlate.toFixed(2)} L/Blech</span>
+            <span>{fmtAmt(batterWeightGPerPlate, 'g')} Teig/Blech</span>
+            {toppingWeightGPerPlate > 0 && (
+              <span>{fmtAmt(toppingWeightGPerPlate, 'g')} Streusel/Blech</span>
+            )}
           </div>
         </div>
       )}
@@ -164,22 +187,45 @@ export function BudgetCalculator({ recipe, budget, onBudgetChange, result, tier,
             {recipe.steps && recipe.steps.length > 0 && (
               <div>
                 <p className="font-semibold text-gray-500 uppercase tracking-wide mb-1">Zubereitung</p>
-                <ol className="space-y-1">
-                  {recipe.steps.map((step, i) => (
-                    <li key={i} className="flex gap-2 text-gray-700">
-                      <span className="font-bold text-amber-600 shrink-0">{i + 1}.</span>
-                      <div>
-                        <span>{step.description}</span>
-                        {(step.temperatureCelsius || step.timeMinutes) && (
-                          <span className="ml-1 text-gray-400">
-                            {step.temperatureCelsius && `${step.temperatureCelsius}°C`}
-                            {step.temperatureCelsius && step.timeMinutes && ' · '}
-                            {step.timeMinutes && `${step.timeMinutes} min`}
-                          </span>
-                        )}
-                      </div>
-                    </li>
-                  ))}
+                <ol className="space-y-2">
+                  {recipe.steps.map((step, i) => {
+                    const stepAmounts = (step.ingredients ?? [])
+                      .map(id => {
+                        const ing = allIngs.find(x => x.id === id);
+                        if (!ing) return null;
+                        const raw = amountsPerPlate[id] ?? 0;
+                        const amount = ing.isTopping
+                          ? raw * (recipeConfig.toppingPercent / 100) * batchScale
+                          : raw * batchScale;
+                        if (amount === 0) return null;
+                        return { id, label: ing.label.replace(/ \([^)]+\)$/, ''), amount, unit: ing.unit };
+                      })
+                      .filter(Boolean) as { id: string; label: string; amount: number; unit: 'g' | 'ml' }[];
+                    return (
+                      <li key={i} className="flex gap-2 text-gray-700">
+                        <span className="font-bold text-amber-600 shrink-0">{i + 1}.</span>
+                        <div>
+                          <span>{step.description}</span>
+                          {(step.temperatureCelsius || step.timeMinutes) && (
+                            <span className="ml-1 text-gray-400">
+                              {step.temperatureCelsius && `${step.temperatureCelsius}°C`}
+                              {step.temperatureCelsius && step.timeMinutes && ' · '}
+                              {step.timeMinutes && `${step.timeMinutes} min`}
+                            </span>
+                          )}
+                          {stepAmounts.length > 0 && (
+                            <div className="mt-0.5 flex flex-wrap gap-1">
+                              {stepAmounts.map(a => (
+                                <span key={a.id} className="bg-amber-50 text-amber-700 text-xs px-1.5 py-0.5 rounded">
+                                  {a.label}: {fmtAmt(a.amount, a.unit)}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ol>
               </div>
             )}

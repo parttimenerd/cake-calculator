@@ -83,10 +83,21 @@ function ShareCardContent({ recipe, payload }: { recipe: RecipeDefinition; paylo
             <StatCard label="Teig-Portionen" value={`${batchInfo.batches}×`} />
           </div>
 
-          <p className="text-xs text-gray-400 text-center">
-            {batchInfo.platesPerBatch} {batchInfo.platesPerBatch === 1 ? 'Blech' : 'Bleche'}/Portion ·{' '}
-            Preisniveau: {tier === 'retail' ? 'Einzelhandel' : 'Gastro'}
-          </p>
+          <div className="flex flex-wrap justify-center gap-1.5">
+            {batchInfo.fullBatches > 0 && (
+              <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded-full">
+                {batchInfo.fullBatches}× {batchInfo.platesPerBatch} {batchInfo.platesPerBatch === 1 ? 'Blech' : 'Bleche'}
+              </span>
+            )}
+            {batchInfo.lastBatchPlates !== batchInfo.platesPerBatch && batchInfo.lastBatchPlates > 0 && (
+              <span className="bg-blue-50 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                1× {batchInfo.lastBatchPlates} {batchInfo.lastBatchPlates === 1 ? 'Blech' : 'Bleche'}
+              </span>
+            )}
+            <span className="text-xs text-gray-400 self-center">
+              Preisniveau: {tier === 'retail' ? 'Einzelhandel' : 'Gastro'}
+            </span>
+          </div>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-4">
@@ -145,22 +156,45 @@ function ShareCardContent({ recipe, payload }: { recipe: RecipeDefinition; paylo
           {recipe.steps && recipe.steps.length > 0 && (
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Zubereitung</p>
-              <ol className="space-y-1">
-                {recipe.steps.map((step, i) => (
-                  <li key={i} className="flex gap-2 text-sm text-gray-700">
-                    <span className="font-bold text-amber-600 shrink-0">{i + 1}.</span>
-                    <div>
-                      <span>{step.description}</span>
-                      {(step.temperatureCelsius || step.timeMinutes) && (
-                        <span className="ml-1 text-gray-400">
-                          {step.temperatureCelsius && `${step.temperatureCelsius}°C`}
-                          {step.temperatureCelsius && step.timeMinutes && ' · '}
-                          {step.timeMinutes && `${step.timeMinutes} min`}
-                        </span>
-                      )}
-                    </div>
-                  </li>
-                ))}
+              <ol className="space-y-2">
+                {recipe.steps.map((step, i) => {
+                  const stepAmounts = (step.ingredients ?? [])
+                    .map(id => {
+                      const ing = allIngs.find(x => x.id === id);
+                      if (!ing) return null;
+                      const raw = amountsPerPlate[id] ?? 0;
+                      const amount = ing.isTopping
+                        ? raw * (config.toppingPercent / 100) * batchScale
+                        : raw * batchScale;
+                      if (amount === 0) return null;
+                      return { id, label: ing.label.replace(/ \([^)]+\)$/, ''), amount, unit: ing.unit };
+                    })
+                    .filter(Boolean) as { id: string; label: string; amount: number; unit: 'g' | 'ml' }[];
+                  return (
+                    <li key={i} className="flex gap-2 text-sm text-gray-700">
+                      <span className="font-bold text-amber-600 shrink-0">{i + 1}.</span>
+                      <div>
+                        <span>{step.description}</span>
+                        {(step.temperatureCelsius || step.timeMinutes) && (
+                          <span className="ml-1 text-gray-400">
+                            {step.temperatureCelsius && `${step.temperatureCelsius}°C`}
+                            {step.temperatureCelsius && step.timeMinutes && ' · '}
+                            {step.timeMinutes && `${step.timeMinutes} min`}
+                          </span>
+                        )}
+                        {stepAmounts.length > 0 && (
+                          <div className="mt-0.5 flex flex-wrap gap-1">
+                            {stepAmounts.map(a => (
+                              <span key={a.id} className="bg-amber-50 text-amber-700 text-xs px-1.5 py-0.5 rounded">
+                                {a.label}: {fmtAmt(a.amount, a.unit)}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
               </ol>
             </div>
           )}

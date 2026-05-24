@@ -20,7 +20,9 @@ export function getBatchInfo(numPlates: number, recipe: RecipeDefinition, config
   const litersPerPlate = getBatterLitersPerPlate(recipe, config, plateConfig);
   const platesPerBatch = Math.max(1, Math.floor(config.bowlLiters / litersPerPlate));
   const batches = numPlates > 0 ? Math.ceil(numPlates / platesPerBatch) : 0;
-  return { litersPerPlate, platesPerBatch, batches };
+  const lastBatchPlates = numPlates > 0 ? numPlates - (batches - 1) * platesPerBatch : 0;
+  const fullBatches = lastBatchPlates === platesPerBatch ? batches : batches - 1;
+  return { litersPerPlate, platesPerBatch, batches, lastBatchPlates, fullBatches };
 }
 
 export function getAmountsPerPlate(recipe: RecipeDefinition, config: RecipeConfig, plateConfig: PlateConfig): Record<IngredientId, number> {
