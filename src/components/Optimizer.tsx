@@ -247,13 +247,14 @@ export function Optimizer({ recipe, numPlates, config, plateConfig, prices, tier
                   )}
 
                   <div className="overflow-x-auto -mx-1">
-                    <table className="w-full text-xs min-w-[520px]">
+                    <table className="w-full text-xs min-w-[600px]">
                       <thead>
                         <tr className="border-b border-gray-100">
                           <th className="text-left py-1.5 pl-1 font-medium text-gray-400">Zutat</th>
                           <th className="text-right py-1.5 font-medium text-gray-400">Basis/Blech</th>
                           <th className="text-right py-1.5 font-medium text-gray-400">Optimiert/Blech</th>
                           <th className="text-right py-1.5 font-medium text-gray-400">Δ%</th>
+                          <th className="text-right py-1.5 font-medium text-gray-400">€/Blech</th>
                           <th className="text-right py-1.5 font-medium text-gray-400">Rest vorher</th>
                           <th className="text-right py-1.5 font-medium text-gray-400">Rest nachher</th>
                           <th className="text-right py-1.5 pr-1 font-medium text-gray-400">Ersparnis</th>
@@ -281,6 +282,9 @@ export function Optimizer({ recipe, numPlates, config, plateConfig, prices, tier
                                 }`}>
                                   {deltaPct >= 0 ? '+' : ''}{deltaPct.toFixed(1)}%
                                 </td>
+                                <td className="text-right py-1.5 pr-1.5 font-medium text-gray-700">
+                                  {fmtEur(r.costPerPlate)}
+                                </td>
                                 <td className="text-right py-1.5 pr-1.5 text-gray-400">{fmtEur(r.costBefore)}</td>
                                 <td className={`text-right py-1.5 pr-1.5 ${r.costAfter < r.costBefore ? 'text-green-600' : 'text-gray-400'}`}>
                                   {fmtEur(r.costAfter)}
@@ -296,7 +300,7 @@ export function Optimizer({ recipe, numPlates, config, plateConfig, prices, tier
                       </tbody>
                       <tfoot>
                         <tr className="border-t-2 border-gray-200">
-                          <td colSpan={4} className="py-1.5 pl-1 text-xs font-semibold text-gray-600">
+                          <td colSpan={5} className="py-1.5 pl-1 text-xs font-semibold text-gray-600">
                             Gesamt
                           </td>
                           <td className="text-right py-1.5 pr-1.5 font-semibold text-gray-600">{fmtEur(result.totalLeftoverBefore)}</td>

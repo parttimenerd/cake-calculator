@@ -30,6 +30,7 @@ export interface IngredientResult {
   costBefore: number;
   costAfter: number;
   saving: number;
+  costPerPlate: number;
 }
 
 export interface GAResult {
@@ -169,19 +170,22 @@ function buildResult(
 
     const costBefore = baseLine ? (baseLine.leftover / baseLine.packSize) * baseLine.packPrice : 0;
     const costAfter  = adjLine  ? (adjLine.leftover  / adjLine.packSize)  * adjLine.packPrice  : 0;
+    const adjustedAmountPerPlate = adjLine ? adjLine.totalNeeded / numPlates : 0;
+    const costPerPlate = adjLine ? adjustedAmountPerPlate * (adjLine.packPrice / adjLine.packSize) : 0;
 
     ingredients.push({
       id: ing.id,
       label: ing.label,
       multiplier: bestGenome[i],
       baseAmountPerPlate:     baseLine ? baseLine.totalNeeded / numPlates : 0,
-      adjustedAmountPerPlate: adjLine  ? adjLine.totalNeeded  / numPlates : 0,
+      adjustedAmountPerPlate,
       unit: ing.unit,
       leftoverBefore: baseLine?.leftover ?? 0,
       leftoverAfter:  adjLine?.leftover  ?? 0,
       costBefore,
       costAfter,
       saving: costBefore - costAfter,
+      costPerPlate,
     });
   }
 
