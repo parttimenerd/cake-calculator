@@ -23,7 +23,7 @@ import { Optimizer } from './components/Optimizer';
 import { ShareCard } from './components/ShareCard';
 import type { SharePayload } from './components/ShareCard';
 
-const LS_VERSION = 'cake-calc-v2';
+const LS_VERSION = 'cake-calc-v3';
 
 const DEFAULT_SLICE_CONFIG: SliceConfig = {
   method: 'dimensions',
