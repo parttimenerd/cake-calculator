@@ -69,10 +69,6 @@ function hasFlexSlot(params: GAParams): boolean {
     params.config.toppingPercent > 0 && params.config.toppingPercent < 100;
 }
 
-function genomeLength(recipe: RecipeDefinition, params: GAParams): number {
-  return getAllIngredients(recipe).length + (hasFlexSlot(params) ? 1 : 0);
-}
-
 function createGenome(recipe: RecipeDefinition, params: GAParams): Genome {
   const ings = getAllIngredients(recipe);
   const len = ings.length + (hasFlexSlot(params) ? 1 : 0);
