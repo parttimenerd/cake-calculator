@@ -103,7 +103,7 @@ ingredients:
   - id: margarine
     label: "Margarine (Einfetten)"
     unit: g
-    baseAmount: 5
+    baseAmount: 40
     kcalPerUnit: 7.2
     prices:
       retail: { packSize: 250, packPrice: 0.89 }
