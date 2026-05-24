@@ -179,6 +179,37 @@ function MainApp() {
 
   const hasMultipliers = Object.keys(mergedRecipeConfig.ingredientMultipliers ?? {}).length > 0;
 
+  function buildShareHash(): string {
+    const payload: SharePayload = {
+      v: 1,
+      recipeId: recipe.id,
+      plateCount: budgetResult.platesCount,
+      slices: totalSlices,
+      multipliers: mergedRecipeConfig.ingredientMultipliers ?? {},
+      config: mergedRecipeConfig,
+      plateConfig: state.plateConfig,
+      sliceConfig: state.sliceConfig,
+      tier: state.tier,
+    };
+    return '#share=' + btoa(JSON.stringify(payload));
+  }
+
+  const [shareToast, setShareToast] = useState(false);
+  function handleShare() {
+    const hash = buildShareHash();
+    const url = window.location.href.split('#')[0] + hash;
+    navigator.clipboard.writeText(url).catch(() => {});
+    window.history.replaceState(null, '', hash);
+    setShareToast(true);
+    setTimeout(() => setShareToast(false), 2000);
+  }
+
+  function handleOpenShortVersion() {
+    const hash = buildShareHash();
+    const url = window.location.href.split('#')[0] + hash;
+    window.open(url, '_blank');
+  }
+
   const handleRecipeChange = (id: string) => {
     setSelectedRecipeId(id);
     if (!perRecipeState[id]) {
@@ -204,17 +235,31 @@ function MainApp() {
               </h1>
               <p className="text-amber-200 text-sm">{recipe.description ?? 'Kostenkalkulation'}</p>
             </div>
-            {ALL_RECIPES.length > 1 && (
-              <select
-                value={selectedRecipeId}
-                onChange={e => handleRecipeChange(e.target.value)}
-                className="mt-0.5 bg-amber-600 text-white border border-amber-500 rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-300 cursor-pointer"
+            <div className="flex items-center gap-2 mt-0.5 shrink-0">
+              <button
+                onClick={handleOpenShortVersion}
+                className="bg-amber-600 hover:bg-amber-500 text-white text-sm font-medium px-3 py-1.5 rounded-lg border border-amber-500 transition-colors"
               >
-                {ALL_RECIPES.map(r => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
-                ))}
-              </select>
-            )}
+                Kurzversion
+              </button>
+              <button
+                onClick={handleShare}
+                className="bg-amber-600 hover:bg-amber-500 text-white text-sm font-medium px-3 py-1.5 rounded-lg border border-amber-500 transition-colors relative"
+              >
+                {shareToast ? 'Kopiert!' : 'Teilen'}
+              </button>
+              {ALL_RECIPES.length > 1 && (
+                <select
+                  value={selectedRecipeId}
+                  onChange={e => handleRecipeChange(e.target.value)}
+                  className="bg-amber-600 text-white border border-amber-500 rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-300 cursor-pointer"
+                >
+                  {ALL_RECIPES.map(r => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
           </div>
         </div>
       </header>
