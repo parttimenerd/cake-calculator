@@ -35,7 +35,7 @@ export function BudgetCalculator({ recipe, budget, onBudgetChange, result, tier,
   const remaining = result.budgetRemaining;
 
   const allIngs = getAllIngredients(recipe);
-  const batchScale = batchInfo.platesPerBatch;
+  const batchScale = Math.min(batchInfo.platesPerBatch, result.platesCount);
 
   const wpIng = recipe.ingredients.find(i => i.role === 'weight_pct');
   const batterLines = allIngs.filter(i =>

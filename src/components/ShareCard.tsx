@@ -58,7 +58,7 @@ function ShareCardContent({ recipe, payload }: { recipe: RecipeDefinition; paylo
     (i.role !== 'optional_toggle' || config.enabledToggles.includes(i.id))
   );
   const toppingLines = recipe.topping ? allIngs.filter(i => i.isTopping) : [];
-  const batchScale = batchInfo.platesPerBatch;
+  const batchScale = Math.min(batchInfo.platesPerBatch, plateCount);
 
   return (
     <div className="min-h-screen bg-gray-50">
