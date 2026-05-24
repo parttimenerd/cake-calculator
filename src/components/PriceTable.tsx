@@ -13,10 +13,6 @@ function fmtEur(n: number) {
   return n.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 }
 
-function fmtAmount(amount: number, unit: 'g' | 'ml'): string {
-  if (unit === 'ml') return amount >= 1000 ? `${amount / 1000} L` : `${amount} ml`;
-  return amount >= 1000 ? `${amount / 1000} kg` : `${amount} g`;
-}
 
 export function PriceTable({ recipe, prices, tier, onTierChange, onPricesChange }: Props) {
   const ingredients = getAllIngredients(recipe);
