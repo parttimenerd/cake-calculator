@@ -2,7 +2,7 @@
 
 A browser-based cost calculator for batch baking. Define any recipe in a YAML file and the app calculates shopping costs, how many plates fit within a budget, per-slice nutrition and price, batch mixing instructions, and runs a genetic algorithm to minimise packaging waste.
 
-**Live:** https://qerim.github.io/cake-calculator/
+**Live:** https://parttimenerd.github.io/cake-calculator/
 
 ## Recipes
 
