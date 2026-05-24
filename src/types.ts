@@ -53,6 +53,13 @@ export interface YamlTopping {
   ingredients: YamlIngredient[];
 }
 
+export interface RecipeStep {
+  description: string;
+  ingredients?: IngredientId[];
+  temperatureCelsius?: number;
+  timeMinutes?: number;
+}
+
 export interface RecipeDefinition {
   id: string;
   name: string;
@@ -62,6 +69,7 @@ export interface RecipeDefinition {
   batter: YamlBatter;
   ingredients: YamlIngredient[];
   topping?: YamlTopping;
+  steps?: RecipeStep[];
 }
 
 // ─── Derived/runtime ingredient representation ────────────────────────────────

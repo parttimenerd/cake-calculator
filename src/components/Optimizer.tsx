@@ -10,7 +10,7 @@ interface Props {
   plateConfig: PlateConfig;
   prices: PriceTable;
   tier: PriceTier;
-  onApply: (multipliers: Partial<Record<IngredientId, number>>) => void;
+  onApply: (multipliers: Partial<Record<IngredientId, number>>, toppingPercent: number) => void;
   onReset: () => void;
   hasMultipliers: boolean;
 }
@@ -25,7 +25,9 @@ function fmtAmount(amount: number, unit: 'g' | 'ml') {
 }
 
 export function Optimizer({ recipe, numPlates, config, plateConfig, prices, tier, onApply, onReset, hasMultipliers }: Props) {
-  const [tolerance, setTolerance] = useState(5);
+  const [toleranceNormal, setToleranceNormal] = useState(5);
+  const [toleranceTopping, setToleranceTopping] = useState(15);
+  const [toppingCountFlex, setToppingCountFlex] = useState(0);
   const [popSize, setPopSize] = useState(200);
   const [generations, setGenerations] = useState(300);
   const [penaltyFactor, setPenaltyFactor] = useState(3);
@@ -33,16 +35,22 @@ export function Optimizer({ recipe, numPlates, config, plateConfig, prices, tier
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [bestFitness, setBestFitness] = useState<number | null>(null);
-  const [result, setResult] = useState<GAResult | null>(null);
+  const [results, setResults] = useState<GAResult[] | null>(null);
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const [shareToast, setShareToast] = useState(false);
 
   const cancelRef = useRef(false);
+
+  const showToppingFlex = recipe.topping != null &&
+    config.toppingPercent > 0 && config.toppingPercent < 100;
 
   async function handleRun() {
     cancelRef.current = false;
     setRunning(true);
     setProgress(0);
     setBestFitness(null);
-    setResult(null);
+    setResults(null);
+    setSelectedIdx(0);
 
     const res = await runGAAsync(
       {
@@ -52,7 +60,9 @@ export function Optimizer({ recipe, numPlates, config, plateConfig, prices, tier
         plateConfig,
         prices,
         tier,
-        tolerance: tolerance / 100,
+        toleranceNormal: toleranceNormal / 100,
+        toleranceTopping: toleranceTopping / 100,
+        toppingCountFlex,
         populationSize: popSize,
         generations,
         penaltyFactor,
@@ -65,8 +75,28 @@ export function Optimizer({ recipe, numPlates, config, plateConfig, prices, tier
     );
 
     setProgress(100);
-    setResult(res);
+    setResults(res);
     setRunning(false);
+  }
+
+  function handleShare(result: GAResult) {
+    const payload = {
+      v: 1,
+      recipeId: recipe.id,
+      plateCount: numPlates,
+      slices: 0,
+      multipliers: result.multipliers,
+      config: { ...config, toppingPercent: result.toppingPercentUsed, ingredientMultipliers: result.multipliers },
+      plateConfig,
+      sliceConfig: null,
+      tier,
+    };
+    const hash = '#share=' + btoa(JSON.stringify(payload));
+    const url = window.location.href.split('#')[0] + hash;
+    navigator.clipboard.writeText(url).catch(() => {});
+    window.history.replaceState(null, '', hash);
+    setShareToast(true);
+    setTimeout(() => setShareToast(false), 2000);
   }
 
   const disabled = numPlates === 0 || running;
@@ -83,26 +113,43 @@ export function Optimizer({ recipe, numPlates, config, plateConfig, prices, tier
           )}
         </div>
         <p className="text-xs text-gray-400 mt-0.5">
-          Genetischer Algorithmus — variiert Zutatenmengen ±{tolerance}%, minimiert Verpackungsreste
+          Genetischer Algorithmus — variiert Zutatenmengen, minimiert Verpackungsreste
         </p>
       </div>
 
       <div className="px-4 py-4 space-y-4">
-        <div>
-          <div className="flex justify-between items-center mb-1">
-            <label className="text-sm font-medium text-gray-700">Toleranz</label>
-            <span className="text-sm font-bold text-amber-600">±{tolerance}%</span>
-          </div>
-          <input
-            type="range" min={1} max={10} step={1}
-            value={tolerance}
-            onChange={e => setTolerance(Number(e.target.value))}
+        <div className="space-y-3">
+          <SliderField
+            label="Toleranz Teig"
+            value={toleranceNormal}
+            min={1} max={20} step={1}
+            display={`±${toleranceNormal}%`}
+            minLabel="±1%" maxLabel="±20%"
             disabled={running}
-            className="w-full accent-amber-600"
+            onChange={setToleranceNormal}
           />
-          <div className="flex justify-between text-xs text-gray-300 mt-0.5">
-            <span>±1%</span><span>±10%</span>
-          </div>
+          {recipe.topping && (
+            <SliderField
+              label="Toleranz Streusel"
+              value={toleranceTopping}
+              min={1} max={30} step={1}
+              display={`±${toleranceTopping}%`}
+              minLabel="±1%" maxLabel="±30%"
+              disabled={running}
+              onChange={setToleranceTopping}
+            />
+          )}
+          {showToppingFlex && (
+            <SliderField
+              label="Varianz Streusel-Bleche"
+              value={toppingCountFlex}
+              min={0} max={5} step={1}
+              display={toppingCountFlex === 0 ? 'aus' : `±${toppingCountFlex} Bleche`}
+              minLabel="aus" maxLabel="±5"
+              disabled={running}
+              onChange={setToppingCountFlex}
+            />
+          )}
         </div>
 
         <details className="text-sm">
@@ -151,88 +198,158 @@ export function Optimizer({ recipe, numPlates, config, plateConfig, prices, tier
           </div>
         )}
 
-        {result && !running && (
+        {results && !running && (
           <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <SummaryCard label="Reste vorher" value={fmtEur(result.totalLeftoverBefore)} sub="" />
-              <SummaryCard label="Reste nachher" value={fmtEur(result.totalLeftoverAfter)} sub="" highlight="green" />
-              <SummaryCard
-                label="Ersparnis"
-                value={fmtEur(result.totalSaving)}
-                sub={result.costChange !== 0 ? `Einkauf ${result.costChange > 0 ? '+' : ''}${fmtEur(result.costChange)}` : 'Einkauf unverändert'}
-                highlight={result.totalSaving > 0 ? 'green' : undefined}
-              />
-            </div>
+            {results.length > 1 && (
+              <div className="flex gap-2">
+                {results.map((r, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedIdx(i)}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                      selectedIdx === i
+                        ? 'bg-amber-600 text-white border-amber-600'
+                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-amber-400'
+                    }`}
+                  >
+                    Lösung {i + 1}
+                    <span className="block font-normal opacity-75">
+                      {fmtEur(r.totalSaving)} gespart
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
 
-            <div className="overflow-x-auto -mx-1">
-              <table className="w-full text-xs min-w-[520px]">
-                <thead>
-                  <tr className="border-b border-gray-100">
-                    <th className="text-left py-1.5 pl-1 font-medium text-gray-400">Zutat</th>
-                    <th className="text-right py-1.5 font-medium text-gray-400">Basis/Blech</th>
-                    <th className="text-right py-1.5 font-medium text-gray-400">Optimiert/Blech</th>
-                    <th className="text-right py-1.5 font-medium text-gray-400">Δ%</th>
-                    <th className="text-right py-1.5 font-medium text-gray-400">Rest vorher</th>
-                    <th className="text-right py-1.5 font-medium text-gray-400">Rest nachher</th>
-                    <th className="text-right py-1.5 pr-1 font-medium text-gray-400">Ersparnis</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.ingredients
-                    .filter(r => r.baseAmountPerPlate > 0 || r.adjustedAmountPerPlate > 0)
-                    .map(r => {
-                      const deltaPct = (r.multiplier - 1) * 100;
-                      const isChanged = Math.abs(deltaPct) >= 0.5;
-                      return (
-                        <tr key={r.id} className="border-b border-gray-50">
-                          <td className={`py-1.5 pl-1 pr-1 leading-tight ${isChanged ? 'font-medium text-gray-800' : 'text-gray-600'}`}>
-                            {r.label.replace(/ \([^)]+\)$/, '')}
-                          </td>
-                          <td className="text-right py-1.5 pr-1.5 text-gray-500">
-                            {fmtAmount(r.baseAmountPerPlate, r.unit)}
-                          </td>
-                          <td className={`text-right py-1.5 pr-1.5 font-medium ${isChanged ? 'text-amber-700' : 'text-gray-500'}`}>
-                            {fmtAmount(r.adjustedAmountPerPlate, r.unit)}
-                          </td>
-                          <td className={`text-right py-1.5 pr-1.5 font-medium ${
-                            Math.abs(deltaPct) >= 3 ? 'text-amber-600' : isChanged ? 'text-gray-600' : 'text-gray-300'
-                          }`}>
-                            {deltaPct >= 0 ? '+' : ''}{deltaPct.toFixed(1)}%
-                          </td>
-                          <td className="text-right py-1.5 pr-1.5 text-gray-400">{fmtEur(r.costBefore)}</td>
-                          <td className={`text-right py-1.5 pr-1.5 ${r.costAfter < r.costBefore ? 'text-green-600' : 'text-gray-400'}`}>
-                            {fmtEur(r.costAfter)}
-                          </td>
-                          <td className={`text-right py-1.5 pr-1 font-semibold ${
-                            r.saving > 0.005 ? 'text-green-700' : r.saving < -0.005 ? 'text-red-500' : 'text-gray-300'
-                          }`}>
-                            {r.saving > 0.005 ? '+' : ''}{fmtEur(r.saving)}
-                          </td>
+            {(() => {
+              const result = results[selectedIdx];
+              return (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <SummaryCard label="Reste vorher" value={fmtEur(result.totalLeftoverBefore)} sub="" />
+                    <SummaryCard label="Reste nachher" value={fmtEur(result.totalLeftoverAfter)} sub="" highlight="green" />
+                    <SummaryCard
+                      label="Ersparnis"
+                      value={fmtEur(result.totalSaving)}
+                      sub={result.costChange !== 0 ? `Einkauf ${result.costChange > 0 ? '+' : ''}${fmtEur(result.costChange)}` : 'Einkauf unverändert'}
+                      highlight={result.totalSaving > 0 ? 'green' : undefined}
+                    />
+                  </div>
+
+                  {result.toppingPercentUsed !== config.toppingPercent && (
+                    <p className="text-xs text-amber-600">
+                      Streusel-Anteil angepasst: {config.toppingPercent}% → {Math.round(result.toppingPercentUsed)}%
+                    </p>
+                  )}
+
+                  <div className="overflow-x-auto -mx-1">
+                    <table className="w-full text-xs min-w-[520px]">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          <th className="text-left py-1.5 pl-1 font-medium text-gray-400">Zutat</th>
+                          <th className="text-right py-1.5 font-medium text-gray-400">Basis/Blech</th>
+                          <th className="text-right py-1.5 font-medium text-gray-400">Optimiert/Blech</th>
+                          <th className="text-right py-1.5 font-medium text-gray-400">Δ%</th>
+                          <th className="text-right py-1.5 font-medium text-gray-400">Rest vorher</th>
+                          <th className="text-right py-1.5 font-medium text-gray-400">Rest nachher</th>
+                          <th className="text-right py-1.5 pr-1 font-medium text-gray-400">Ersparnis</th>
                         </tr>
-                      );
-                    })}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-gray-200">
-                    <td colSpan={4} className="py-1.5 pl-1 text-xs font-semibold text-gray-600">
-                      Gesamt · {result.generationsRan} Generationen
-                    </td>
-                    <td className="text-right py-1.5 pr-1.5 font-semibold text-gray-600">{fmtEur(result.totalLeftoverBefore)}</td>
-                    <td className="text-right py-1.5 pr-1.5 font-semibold text-green-700">{fmtEur(result.totalLeftoverAfter)}</td>
-                    <td className="text-right py-1.5 pr-1 font-bold text-green-700">+{fmtEur(result.totalSaving)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+                      </thead>
+                      <tbody>
+                        {result.ingredients
+                          .filter(r => r.baseAmountPerPlate > 0 || r.adjustedAmountPerPlate > 0)
+                          .map(r => {
+                            const deltaPct = (r.multiplier - 1) * 100;
+                            const isChanged = Math.abs(deltaPct) >= 0.5;
+                            return (
+                              <tr key={r.id} className="border-b border-gray-50">
+                                <td className={`py-1.5 pl-1 pr-1 leading-tight ${isChanged ? 'font-medium text-gray-800' : 'text-gray-600'}`}>
+                                  {r.label.replace(/ \([^)]+\)$/, '')}
+                                </td>
+                                <td className="text-right py-1.5 pr-1.5 text-gray-500">
+                                  {fmtAmount(r.baseAmountPerPlate, r.unit)}
+                                </td>
+                                <td className={`text-right py-1.5 pr-1.5 font-medium ${isChanged ? 'text-amber-700' : 'text-gray-500'}`}>
+                                  {fmtAmount(r.adjustedAmountPerPlate, r.unit)}
+                                </td>
+                                <td className={`text-right py-1.5 pr-1.5 font-medium ${
+                                  Math.abs(deltaPct) >= 3 ? 'text-amber-600' : isChanged ? 'text-gray-600' : 'text-gray-300'
+                                }`}>
+                                  {deltaPct >= 0 ? '+' : ''}{deltaPct.toFixed(1)}%
+                                </td>
+                                <td className="text-right py-1.5 pr-1.5 text-gray-400">{fmtEur(r.costBefore)}</td>
+                                <td className={`text-right py-1.5 pr-1.5 ${r.costAfter < r.costBefore ? 'text-green-600' : 'text-gray-400'}`}>
+                                  {fmtEur(r.costAfter)}
+                                </td>
+                                <td className={`text-right py-1.5 pr-1 font-semibold ${
+                                  r.saving > 0.005 ? 'text-green-700' : r.saving < -0.005 ? 'text-red-500' : 'text-gray-300'
+                                }`}>
+                                  {r.saving > 0.005 ? '+' : ''}{fmtEur(r.saving)}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t-2 border-gray-200">
+                          <td colSpan={4} className="py-1.5 pl-1 text-xs font-semibold text-gray-600">
+                            Gesamt · {result.generationsRan} Generationen
+                          </td>
+                          <td className="text-right py-1.5 pr-1.5 font-semibold text-gray-600">{fmtEur(result.totalLeftoverBefore)}</td>
+                          <td className="text-right py-1.5 pr-1.5 font-semibold text-green-700">{fmtEur(result.totalLeftoverAfter)}</td>
+                          <td className="text-right py-1.5 pr-1 font-bold text-green-700">+{fmtEur(result.totalSaving)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
 
-            <button
-              onClick={() => onApply(result.multipliers)}
-              className="w-full py-2 rounded-lg font-semibold text-sm bg-green-600 text-white hover:bg-green-700 transition-colors"
-            >
-              Übernehmen — optimierte Mengen anwenden
-            </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => onApply(result.multipliers, result.toppingPercentUsed)}
+                      className="flex-1 py-2 rounded-lg font-semibold text-sm bg-green-600 text-white hover:bg-green-700 transition-colors"
+                    >
+                      Übernehmen — optimierte Mengen anwenden
+                    </button>
+                    <button
+                      onClick={() => handleShare(result)}
+                      className="px-3 py-2 rounded-lg font-semibold text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors relative"
+                      title="Link teilen"
+                    >
+                      {shareToast ? 'Kopiert!' : 'Teilen'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function SliderField({
+  label, value, min, max, step, display, minLabel, maxLabel, disabled, onChange,
+}: {
+  label: string; value: number; min: number; max: number; step: number;
+  display: string; minLabel: string; maxLabel: string; disabled: boolean;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-1">
+        <label className="text-sm font-medium text-gray-700">{label}</label>
+        <span className="text-sm font-bold text-amber-600">{display}</span>
+      </div>
+      <input
+        type="range" min={min} max={max} step={step}
+        value={value}
+        onChange={e => onChange(Number(e.target.value))}
+        disabled={disabled}
+        className="w-full accent-amber-600"
+      />
+      <div className="flex justify-between text-xs text-gray-300 mt-0.5">
+        <span>{minLabel}</span><span>{maxLabel}</span>
       </div>
     </div>
   );

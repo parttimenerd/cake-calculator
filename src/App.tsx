@@ -20,6 +20,8 @@ import { SliceConfigPanel } from './components/SliceConfig';
 import { BudgetCalculator } from './components/BudgetCalculator';
 import { ResultsPanel } from './components/ResultsPanel';
 import { Optimizer } from './components/Optimizer';
+import { ShareCard } from './components/ShareCard';
+import type { SharePayload } from './components/ShareCard';
 
 const LS_VERSION = 'cake-calc-v2';
 
@@ -75,7 +77,29 @@ function loadAllRecipeState(recipes: RecipeDefinition[]): Record<string, PerReci
   return result;
 }
 
+function parseShareHash(): SharePayload | null {
+  const hash = window.location.hash;
+  if (!hash.startsWith('#share=')) return null;
+  try {
+    const payload = JSON.parse(atob(hash.slice(7))) as SharePayload;
+    if (payload.v !== 1 || !payload.recipeId) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 export default function App() {
+  const [sharePayload] = useState<SharePayload | null>(() => parseShareHash());
+
+  if (sharePayload) {
+    return <ShareCard payload={sharePayload} />;
+  }
+
+  return <MainApp />;
+}
+
+function MainApp() {
   const [selectedRecipeId, setSelectedRecipeId] = useState<string>(ALL_RECIPES[0].id);
   const [perRecipeState, setPerRecipeState] = useState<Record<string, PerRecipeState>>(
     () => loadAllRecipeState(ALL_RECIPES)
@@ -139,8 +163,14 @@ export default function App() {
     ? budgetResult.shoppingList.grandTotal / budgetResult.platesCount
     : null;
 
-  function handleApplyMultipliers(multipliers: Partial<Record<IngredientId, number>>) {
-    setState({ recipeConfig: { ...mergedRecipeConfig, ingredientMultipliers: multipliers } });
+  function handleApplyMultipliers(multipliers: Partial<Record<IngredientId, number>>, toppingPercent: number) {
+    setState({
+      recipeConfig: {
+        ...mergedRecipeConfig,
+        ingredientMultipliers: multipliers,
+        toppingPercent,
+      },
+    });
   }
 
   function handleResetMultipliers() {
@@ -151,7 +181,6 @@ export default function App() {
 
   const handleRecipeChange = (id: string) => {
     setSelectedRecipeId(id);
-    // Ensure state exists for new recipe
     if (!perRecipeState[id]) {
       const newRecipe = ALL_RECIPES.find(r => r.id === id)!;
       setPerRecipeState(prev => ({ ...prev, [id]: loadRecipeState(newRecipe) }));

@@ -112,6 +112,21 @@ ingredients:
       retail: { packSize: 250, packPrice: 0.89 }
       gastro: { packSize: 2500, packPrice: 6.00 }
 
+steps:
+  - description: "Mehl, Zucker, Kakaopulver, Backpulver und Vanillezucker trocken vermischen"
+    ingredients: [mehl, zucker, kakao, backpulver, vanillezucker]
+  - description: "Rapsöl und Kirschsaft einrühren bis ein glatter Teig entsteht"
+    ingredients: [rapsoel]
+  - description: "Blech einfetten, Teig gleichmäßig verteilen"
+    ingredients: [margarine]
+  - description: "Sauerkirschen abtropfen lassen und gleichmäßig auf dem Teig verteilen (Saft auffangen!)"
+    ingredients: [sauerkirschen]
+  - description: "Streusel aus Butter, Zucker und Kokosraspeln herstellen"
+    ingredients: [streusel_butter, streusel_zucker, kokosraspeln]
+  - description: "Im vorgeheizten Ofen backen, nach 20 Minuten Streusel aufstreuen"
+    temperatureCelsius: 180
+    timeMinutes: 35
+
 topping:
   label: Streusel
   sliderLabel: "Bleche mit Streusel"

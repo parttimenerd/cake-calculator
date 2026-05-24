@@ -9,7 +9,9 @@ export interface GAParams {
   plateConfig: PlateConfig;
   prices: PriceTable;
   tier: PriceTier;
-  tolerance: number;
+  toleranceNormal: number;
+  toleranceTopping: number;
+  toppingCountFlex: number;
   populationSize: number;
   generations: number;
   penaltyFactor: number;
@@ -40,6 +42,7 @@ export interface GAResult {
   costChange: number;
   generationsRan: number;
   multipliers: Partial<Record<IngredientId, number>>;
+  toppingPercentUsed: number;
 }
 
 // ─── internal helpers ────────────────────────────────────────────────────────
@@ -60,11 +63,35 @@ function gaussianNoise(): number {
   return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
 }
 
-function createGenome(recipe: RecipeDefinition, tol: number): Genome {
-  const len = getAllIngredients(recipe).length;
+function hasFlexSlot(params: GAParams): boolean {
+  return params.toppingCountFlex > 0 &&
+    params.recipe.topping != null &&
+    params.config.toppingPercent > 0 && params.config.toppingPercent < 100;
+}
+
+function genomeLength(recipe: RecipeDefinition, params: GAParams): number {
+  return getAllIngredients(recipe).length + (hasFlexSlot(params) ? 1 : 0);
+}
+
+function createGenome(recipe: RecipeDefinition, params: GAParams): Genome {
+  const ings = getAllIngredients(recipe);
+  const len = ings.length + (hasFlexSlot(params) ? 1 : 0);
   const g = new Float64Array(len);
-  for (let i = 0; i < g.length; i++) g[i] = randUniform(1 - tol, 1 + tol);
+  for (let i = 0; i < ings.length; i++) {
+    const tol = ings[i].isTopping ? params.toleranceTopping : params.toleranceNormal;
+    g[i] = randUniform(1 - tol, 1 + tol);
+  }
+  if (hasFlexSlot(params)) {
+    g[ings.length] = randUniform(-1, 1);
+  }
   return g;
+}
+
+function getEffectiveToppingPct(genome: Genome, params: GAParams): number {
+  if (!hasFlexSlot(params)) return params.config.toppingPercent;
+  const ings = getAllIngredients(params.recipe);
+  const offset = genome[ings.length] * params.toppingCountFlex;
+  return clamp(params.config.toppingPercent + (offset / params.numPlates) * 100, 0, 100);
 }
 
 function genomeToMultipliers(recipe: RecipeDefinition, genome: Genome): Partial<Record<IngredientId, number>> {
@@ -74,7 +101,12 @@ function genomeToMultipliers(recipe: RecipeDefinition, genome: Genome): Partial<
 }
 
 function buildAdjustedList(recipe: RecipeDefinition, genome: Genome, params: GAParams): ShoppingList {
-  const cfg: RecipeConfig = { ...params.config, ingredientMultipliers: genomeToMultipliers(recipe, genome) };
+  const effectiveToppingPct = getEffectiveToppingPct(genome, params);
+  const cfg: RecipeConfig = {
+    ...params.config,
+    toppingPercent: effectiveToppingPct,
+    ingredientMultipliers: genomeToMultipliers(recipe, genome),
+  };
   return buildShoppingList(recipe, params.numPlates, cfg, params.plateConfig, params.prices, params.tier);
 }
 
@@ -105,20 +137,32 @@ function crossover(p1: Genome, p2: Genome, rate: number): Genome {
   return child;
 }
 
-function mutate(genome: Genome, rate: number, tol: number): Genome {
-  const sigma = tol / 3;
+function mutate(recipe: RecipeDefinition, genome: Genome, rate: number, params: GAParams): Genome {
+  const ings = getAllIngredients(recipe);
   const g = genome.slice();
-  const lo = 1 - tol, hi = 1 + tol;
-  for (let i = 0; i < g.length; i++) {
-    if (Math.random() < rate) g[i] = clamp(g[i] + gaussianNoise() * sigma, lo, hi);
+  for (let i = 0; i < ings.length; i++) {
+    const tol = ings[i].isTopping ? params.toleranceTopping : params.toleranceNormal;
+    const sigma = tol / 3;
+    if (Math.random() < rate) g[i] = clamp(g[i] + gaussianNoise() * sigma, 1 - tol, 1 + tol);
+  }
+  if (hasFlexSlot(params)) {
+    const fi = ings.length;
+    if (Math.random() < rate) g[fi] = clamp(g[fi] + gaussianNoise() * 0.33, -1, 1);
   }
   return g;
 }
 
-function buildResult(recipe: RecipeDefinition, bestGenome: Genome, generationsRan: number, params: GAParams, baselineList: ShoppingList): GAResult {
+function buildResult(
+  recipe: RecipeDefinition,
+  bestGenome: Genome,
+  generationsRan: number,
+  params: GAParams,
+  baselineList: ShoppingList,
+): GAResult {
   const adjustedList = buildAdjustedList(recipe, bestGenome, params);
   const multipliers = genomeToMultipliers(recipe, bestGenome);
   const { numPlates } = params;
+  const toppingPercentUsed = getEffectiveToppingPct(bestGenome, params);
 
   const ingredients: IngredientResult[] = [];
   for (let i = 0; i < getAllIngredients(recipe).length; i++) {
@@ -158,6 +202,7 @@ function buildResult(recipe: RecipeDefinition, bestGenome: Genome, generationsRa
     costChange: adjustedList.grandTotal - baselineList.grandTotal,
     generationsRan,
     multipliers,
+    toppingPercentUsed,
   };
 }
 
@@ -166,16 +211,16 @@ function buildResult(recipe: RecipeDefinition, bestGenome: Genome, generationsRa
 export function runGAAsync(
   params: GAParams,
   onProgress: (generation: number, bestFitness: number) => void,
-): Promise<GAResult> {
+): Promise<GAResult[]> {
   return new Promise(resolve => {
     const { recipe } = params;
-    const { tolerance: tol, populationSize: popSize, generations: maxGen, earlyStopGenerations } = params;
+    const { populationSize: popSize, generations: maxGen, earlyStopGenerations } = params;
 
     const baselineConfig: RecipeConfig = { ...params.config, ingredientMultipliers: {} };
     const baselineList = buildShoppingList(recipe, params.numPlates, baselineConfig, params.plateConfig, params.prices, params.tier);
     const baselineTotal = baselineList.grandTotal;
 
-    let pop: Genome[] = Array.from({ length: popSize }, () => createGenome(recipe, tol));
+    let pop: Genome[] = Array.from({ length: popSize }, () => createGenome(recipe, params));
     let fits = new Float64Array(popSize);
     for (let i = 0; i < popSize; i++) fits[i] = evaluate(recipe, pop[i], params, baselineTotal);
 
@@ -185,6 +230,23 @@ export function runGAAsync(
     let bestFitness = fits[bestIdx];
     let stagnant = 0;
     let gen = 0;
+
+    // top-3 tracking: [genome, fitness]
+    type Top3Entry = { genome: Genome; fitness: number };
+    const top3: Top3Entry[] = [{ genome: bestGenome.slice(), fitness: bestFitness }];
+
+    function updateTop3(genome: Genome, fitness: number) {
+      const isDifferentEnough = top3.every(e => Math.abs(e.fitness - fitness) > 1e-4);
+      if (!isDifferentEnough && top3.some(e => e.fitness <= fitness)) return;
+      if (top3.length < 3) {
+        if (isDifferentEnough) top3.push({ genome: genome.slice(), fitness });
+      } else {
+        const worstIdx = top3.reduce((wi, e, i) => e.fitness > top3[wi].fitness ? i : wi, 0);
+        if (fitness < top3[worstIdx].fitness && isDifferentEnough) {
+          top3[worstIdx] = { genome: genome.slice(), fitness };
+        }
+      }
+    }
 
     const CHUNK = 10;
     const TOURNAMENT_K = 3;
@@ -203,7 +265,7 @@ export function runGAAsync(
         while (newPop.length < popSize) {
           const p1 = tournamentSelect(fits, TOURNAMENT_K);
           const p2 = tournamentSelect(fits, TOURNAMENT_K);
-          newPop.push(mutate(crossover(pop[p1], pop[p2], CROSSOVER_RATE), MUTATION_RATE, tol));
+          newPop.push(mutate(recipe, crossover(pop[p1], pop[p2], CROSSOVER_RATE), MUTATION_RATE, params));
         }
 
         pop = newPop;
@@ -211,6 +273,8 @@ export function runGAAsync(
 
         let genBest = 0;
         for (let i = 1; i < popSize; i++) if (fits[i] < fits[genBest]) genBest = i;
+
+        updateTop3(pop[genBest], fits[genBest]);
 
         if (fits[genBest] < bestFitness - 1e-9) {
           bestFitness = fits[genBest];
@@ -223,7 +287,9 @@ export function runGAAsync(
         if (stagnant >= earlyStopGenerations) {
           gen++;
           onProgress(gen, bestFitness);
-          resolve(buildResult(recipe, bestGenome, gen, params, baselineList));
+          resolve(top3
+            .sort((a, b) => a.fitness - b.fitness)
+            .map(e => buildResult(recipe, e.genome, gen, params, baselineList)));
           return;
         }
       }
@@ -232,7 +298,9 @@ export function runGAAsync(
       if (gen < maxGen) {
         setTimeout(runChunk, 0);
       } else {
-        resolve(buildResult(recipe, bestGenome, gen, params, baselineList));
+        resolve(top3
+          .sort((a, b) => a.fitness - b.fitness)
+          .map(e => buildResult(recipe, e.genome, gen, params, baselineList)));
       }
     }
 

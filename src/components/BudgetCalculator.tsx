@@ -161,6 +161,28 @@ export function BudgetCalculator({ recipe, budget, onBudgetChange, result, tier,
                 </ul>
               </div>
             )}
+            {recipe.steps && recipe.steps.length > 0 && (
+              <div>
+                <p className="font-semibold text-gray-500 uppercase tracking-wide mb-1">Zubereitung</p>
+                <ol className="space-y-1">
+                  {recipe.steps.map((step, i) => (
+                    <li key={i} className="flex gap-2 text-gray-700">
+                      <span className="font-bold text-amber-600 shrink-0">{i + 1}.</span>
+                      <div>
+                        <span>{step.description}</span>
+                        {(step.temperatureCelsius || step.timeMinutes) && (
+                          <span className="ml-1 text-gray-400">
+                            {step.temperatureCelsius && `${step.temperatureCelsius}°C`}
+                            {step.temperatureCelsius && step.timeMinutes && ' · '}
+                            {step.timeMinutes && `${step.timeMinutes} min`}
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
           </div>
         </details>
       )}
