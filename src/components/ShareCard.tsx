@@ -58,7 +58,9 @@ function ShareCardContent({ recipe, payload }: { recipe: RecipeDefinition; paylo
     (i.role !== 'optional_toggle' || config.enabledToggles.includes(i.id))
   );
   const toppingLines = recipe.topping ? allIngs.filter(i => i.isTopping) : [];
-  const batchScale = Math.min(batchInfo.platesPerBatch, plateCount);
+  const batchScale = batchInfo.platesPerBatch;
+  const lastScale = batchInfo.lastBatchPlates;
+  const hasRemainderBatch = batchInfo.lastBatchPlates !== batchInfo.platesPerBatch && batchInfo.lastBatchPlates > 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -103,55 +105,67 @@ function ShareCardContent({ recipe, payload }: { recipe: RecipeDefinition; paylo
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-4">
           <h2 className="font-semibold text-gray-900">
             Rezept pro Portion ({batchInfo.platesPerBatch} {batchInfo.platesPerBatch === 1 ? 'Blech' : 'Bleche'})
+            {hasRemainderBatch && ` + ${lastScale} ${lastScale === 1 ? 'Blech' : 'Bleche'}`}
           </h2>
 
-          <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Teig</p>
-            <ul className="space-y-0.5 text-sm">
-              {batterLines.map(ing => {
-                const amount = (amountsPerPlate[ing.id] ?? 0) * batchScale;
-                if (amount === 0) return null;
-                return (
-                  <li key={ing.id} className="flex justify-between text-gray-700">
-                    <span>{ing.label.replace(/ \([^)]+\)$/, '')}</span>
-                    <span className="font-medium">{fmtAmt(amount, ing.unit)}</span>
-                  </li>
-                );
-              })}
-              {recipe.batter.extraLiquidPerBatchMl != null && recipe.batter.extraLiquidPerBatchMl > 0 && (
-                <li className="flex justify-between text-gray-700">
-                  <span>{recipe.batter.extraLiquidLabel ?? 'Zusatzflüssigkeit'}</span>
-                  <span className="font-medium">{fmtAmt(recipe.batter.extraLiquidPerBatchMl * batchScale, 'ml')}</span>
-                </li>
-              )}
-              {wpIng && (
-                <li className="flex justify-between text-gray-700 pt-0.5 border-t border-gray-100">
-                  <span>{wpIng.label}</span>
-                  <span className="font-medium">{fmtAmt((amountsPerPlate[wpIng.id] ?? 0) * batchScale, wpIng.unit as 'g' | 'ml')}</span>
-                </li>
-              )}
-            </ul>
+          <div className="space-y-4">
+            {[
+              { scale: batchScale, label: `${batchScale} ${batchScale === 1 ? 'Blech' : 'Bleche'}`, show: true },
+              { scale: lastScale, label: `${lastScale} ${lastScale === 1 ? 'Blech' : 'Bleche'}`, show: hasRemainderBatch },
+            ].filter(b => b.show).map(({ scale, label }) => (
+              <div key={label} className="space-y-3">
+                {hasRemainderBatch && (
+                  <p className="font-semibold text-blue-700 uppercase tracking-wide text-[10px]">Portion: {label}</p>
+                )}
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Teig</p>
+                  <ul className="space-y-0.5 text-sm">
+                    {batterLines.map(ing => {
+                      const amount = (amountsPerPlate[ing.id] ?? 0) * scale;
+                      if (amount === 0) return null;
+                      return (
+                        <li key={ing.id} className="flex justify-between text-gray-700">
+                          <span>{ing.label.replace(/ \([^)]+\)$/, '')}</span>
+                          <span className="font-medium">{fmtAmt(amount, ing.unit)}</span>
+                        </li>
+                      );
+                    })}
+                    {recipe.batter.extraLiquidPerBatchMl != null && recipe.batter.extraLiquidPerBatchMl > 0 && (
+                      <li className="flex justify-between text-gray-700">
+                        <span>{recipe.batter.extraLiquidLabel ?? 'Zusatzflüssigkeit'}</span>
+                        <span className="font-medium">{fmtAmt(recipe.batter.extraLiquidPerBatchMl * scale, 'ml')}</span>
+                      </li>
+                    )}
+                    {wpIng && (
+                      <li className="flex justify-between text-gray-700 pt-0.5 border-t border-gray-100">
+                        <span>{wpIng.label}</span>
+                        <span className="font-medium">{fmtAmt((amountsPerPlate[wpIng.id] ?? 0) * scale, wpIng.unit as 'g' | 'ml')}</span>
+                      </li>
+                    )}
+                  </ul>
+                </div>
+                {recipe.topping && config.toppingPercent > 0 && toppingLines.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                      {recipe.topping.label} ({Math.round(config.toppingPercent)}% der Bleche)
+                    </p>
+                    <ul className="space-y-0.5 text-sm">
+                      {toppingLines.map(ing => {
+                        const amount = (amountsPerPlate[ing.id] ?? 0) * (config.toppingPercent / 100) * scale;
+                        if (amount === 0) return null;
+                        return (
+                          <li key={ing.id} className="flex justify-between text-gray-700">
+                            <span>{ing.label.replace(/ \([^)]+\)$/, '')}</span>
+                            <span className="font-medium">{fmtAmt(amount, ing.unit)}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-
-          {recipe.topping && config.toppingPercent > 0 && toppingLines.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                {recipe.topping.label} ({Math.round(config.toppingPercent)}% der Bleche)
-              </p>
-              <ul className="space-y-0.5 text-sm">
-                {toppingLines.map(ing => {
-                  const amount = (amountsPerPlate[ing.id] ?? 0) * (config.toppingPercent / 100) * batchScale;
-                  if (amount === 0) return null;
-                  return (
-                    <li key={ing.id} className="flex justify-between text-gray-700">
-                      <span>{ing.label.replace(/ \([^)]+\)$/, '')}</span>
-                      <span className="font-medium">{fmtAmt(amount, ing.unit)}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
 
           {recipe.steps && recipe.steps.length > 0 && (
             <div>
